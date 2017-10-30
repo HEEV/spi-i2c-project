@@ -92,9 +92,6 @@ clean:
 size: 
 	arm-none-eabi-size $(PROJ_NAME)*.elf
 
-dfu:
-	dfu-util
-
 tags: force_look
 	ctags -R *
 

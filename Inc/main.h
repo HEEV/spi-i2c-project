@@ -51,6 +51,9 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
+#ifdef __cplusplus
+ extern "C" {
+#endif
 
 /* USER CODE END Includes */
 
@@ -63,6 +66,7 @@
 
 /* USER CODE BEGIN Private defines */
 
+void SystemClock_Config(void);
 /* USER CODE END Private defines */
 
 void _Error_Handler(char *, int);
@@ -76,6 +80,8 @@ void _Error_Handler(char *, int);
 /**
   * @}
 */ 
-
+#ifdef __cplusplus
+}
+#endif
 #endif /* __MAIN_H */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
