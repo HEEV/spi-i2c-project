@@ -72,7 +72,7 @@ SRC_OBJ := $(SRC_EXP:.c=.o)
 .s.o:
 	$(CC) -c $(INCLUDE) $(CFLAGS)  $< -o $@
 
-all: main size dfu
+all: main size
 
 main: $(CAN_OBJ) $(SRC_OBJ) $(STM_OBJ) main.o
 	$(CXX) $(CPPFLAGS) $(INCLUDE) $(SRC_OBJ) $(CAN_OBJ) $(STM_OBJ) main.o -o $(PROJ_NAME).elf
