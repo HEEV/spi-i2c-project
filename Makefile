@@ -14,8 +14,8 @@ TARGET=stm32f0xx
 
 # Put your source files here (or *.cflashing a hex file on a stm32f4discovery, etc)
 
-CAN_SRC := $(CAN_DIR)/*.cpp
 USR_SRC := $(SRC_DIR)/*.c
+CAN_SRC := $(CAN_DIR)/*.cpp
 STM_SRC := $(STM_LIB_SRC)/Src/$(TARGET)*.c
 #STM_SRC += $(CMSIS_STM32)/Source/Templates/system_$(TARGET).c
 STM_SRC += $(STM_USB_CORE)/Src/*.c
@@ -74,7 +74,7 @@ SRC_OBJ := $(SRC_EXP:.c=.o)
 
 all: main size
 
-main: $(CAN_OBJ) $(SRC_OBJ) $(STM_OBJ) main.o
+main: $(CAN_OBJ) $(STM_OBJ) $(SRC_OBJ)  main.o
 	$(CXX) $(CPPFLAGS) $(INCLUDE) $(SRC_OBJ) $(CAN_OBJ) $(STM_OBJ) main.o -o $(PROJ_NAME).elf
 	$(OBJCOPY) -O binary $(PROJ_NAME).elf $(PROJ_NAME).bin
 	$(OBJCOPY) -O ihex $(PROJ_NAME).elf $(PROJ_NAME).hex

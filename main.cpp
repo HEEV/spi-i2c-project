@@ -52,6 +52,7 @@
 
 /* USER CODE BEGIN Includes */
 #include <cstring>
+#include <utility>
 #include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
@@ -60,12 +61,27 @@ CAN_HandleTypeDef hcan;
 
 I2C_HandleTypeDef hi2c1;
 
-SPI_HandleTypeDef hspi2;
-DMA_HandleTypeDef hdma_spi2_tx;
+TIM_HandleTypeDef htim1;
+DMA_HandleTypeDef hdma_tim1_ch3_up;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+//buffer for holding timer values which translate into 1's and 0's
+uint32_t neopixel_buff1[16];
+uint32_t neopixel_buff2[16];
+uint32_t* xferBuff;
+uint32_t* fillingBuff;
 
+struct {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  uint8_t white;
+} pixels[12];
+
+volatile uint8_t fullBuffers;
+volatile uint8_t pixelIndex;
+volatile uint8_t pixelColor;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,14 +89,74 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_SPI2_Init(void);
+static void MX_TIM1_Init(void);
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+void fillBuffers(uint8_t data);
+
+void xferCompleteCallback(DMA_HandleTypeDef *hdma);
+void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+void fillBuffers(uint8_t data){
+  const uint8_t T0H = 5;
+  const uint8_t T0L = 15;
+  const uint8_t T1H = 10;
+  const uint8_t T1L = 10;
+  
+  if(fullBuffers == 2) return;
+  
+  //setup data
+  for(int i=0; i<16; i++){
+    if(data & 0x80){
+      fillingBuff[i++] = T1H;
+      fillingBuff[i] = T1L;
+    }
+    else{
+      fillingBuff[i++] = T0H;
+      fillingBuff[i] = T0L;
+    }
+    data <<= 1;
+  }
+  
+  std::swap(fillingBuff, xferBuff);
+  fullBuffers++;
+  
+}
+
+void xferCompleteCallback(DMA_HandleTypeDef *hdma){
+  //switch buffers
+  if(fullBuffers){
+    std::swap(xferBuff, fillingBuff);
+  }
+  fullBuffers--;
+  
+  HAL_TIM_OC_Start_DMA(&htim1, TIM_CHANNEL_3, xferBuff, 16);
+}
+
+void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma){
+  switch(pixelColor){
+    case 0:
+      fillBuffers(pixels[pixelIndex++].white);
+      break;
+    case 1:
+      fillBuffers(pixels[pixelIndex++].green);
+      break;
+    case 2:
+      fillBuffers(pixels[pixelIndex++].red);
+      break;
+    case 3:
+      fillBuffers(pixels[pixelIndex].blue);
+      pixelIndex=0;
+      break;
+  }
+  if(++pixelIndex == 12) pixelIndex = 0;
+}
 
 /* USER CODE END 0 */
 
@@ -88,7 +164,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  xferBuff = neopixel_buff2;
+  fillingBuff = neopixel_buff1;
+  pixelIndex = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -113,9 +191,10 @@ int main(void)
   MX_CAN_Init();
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
-  MX_SPI2_Init();
+  MX_TIM1_Init();
 
   /* USER CODE BEGIN 2 */
+  HAL_TIM_OC_Start_DMA(&htim1, TIM_CHANNEL_3, xferBuff, 16);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -416,6 +495,33 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
+{
+
+  GPIO_InitTypeDef GPIO_InitStruct;
+  if(htim->Instance==TIM1)
+  {
+  /* USER CODE BEGIN TIM1_MspPostInit 0 */
+
+  /* USER CODE END TIM1_MspPostInit 0 */
+  
+    /**TIM1 GPIO Configuration    
+    PB15     ------> TIM1_CH3N 
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Alternate = GPIO_AF2_TIM1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN TIM1_MspPostInit 1 */
+
+  /* USER CODE END TIM1_MspPostInit 1 */
+  }
+
+}
 
 /* USER CODE END 4 */
 
