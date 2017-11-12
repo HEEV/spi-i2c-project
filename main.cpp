@@ -54,6 +54,7 @@
 #include <cstring>
 #include <utility>
 #include "usbd_cdc_if.h"
+#include "CanNode/CanNode.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -82,6 +83,15 @@ struct {
 volatile uint8_t fullBuffers;
 volatile uint8_t pixelIndex;
 volatile uint8_t pixelColor;
+
+
+//CAN Variables.
+CanNode *status;
+CanNode *nunchuck;
+
+//I2C Variables.
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,6 +108,13 @@ void fillBuffers(uint8_t data);
 
 void xferCompleteCallback(DMA_HandleTypeDef *hdma);
 void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
+
+//CAN RTR functions
+void statusRTR(CanMessage *data);
+void statusRTR(CanMessage *data) 
+{
+  //Do nothing if recieved message.
+}
 
 /* USER CODE END PFP */
 
@@ -167,6 +184,7 @@ int main(void)
   xferBuff = neopixel_buff2;
   fillingBuff = neopixel_buff1;
   pixelIndex = 0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -195,26 +213,43 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   HAL_TIM_OC_Start_DMA(&htim1, TIM_CHANNEL_3, xferBuff, 16);
+
+  CanNode status_node(WHEEL_TIME, statusRTR);
+  status = &status_node;
+  //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
+  //nodePtr->addFilter(filterId, handler);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  
+    CanNode::checkForMessages();
   /* USER CODE END WHILE */
   
     HAL_Delay(1);
     
     uint32_t time = HAL_GetTick();
-    if(time % 1000 == 0){
+    //Suff to do every second.
+    if(time % 1000 == 0)
+    {
+      //Send the time over the USB interface.
       strcpy(buff, "time: ");
       CDC_Transmit_FS((uint8_t*) buff, 16);
       itoa(time, buff, 10);
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
+
+      //Temporaraly send time information on CAN bus.
+      status->sendData(time);
+
     }
-    if(time % 500 == 0) {
+
+    //Stuff to do every half a second.
+    if(time % 500 == 0) 
+    {
+      //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
     }
   /* USER CODE BEGIN 3 */

@@ -1,0 +1,1 @@
+This project is meant to be used on conjunction with a Wii nunchuck and a spi LED ring. In addition to see the output of the nunchuck you need to be able to read CAN messages that are output from the microncontroller board.
