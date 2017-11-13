@@ -80,6 +80,8 @@ void _Error_Handler(char *, int);
 /**
   * @}
 */ 
-
+#ifdef __cplusplus
+}
+#endif
 #endif /* __MAIN_H */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
