@@ -54,31 +54,32 @@
 #include <cstring>
 #include <utility>
 #include "usbd_cdc_if.h"
-#include "CanNode/CanNode.h"
+//#include "CanNode/CanNode.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
 I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
 DMA_HandleTypeDef hdma_tim1_ch3_up;
+DMA_HandleTypeDef hdma_tim3_ch3;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 //buffer for holding timer values which translate into 1's and 0's
-uint32_t neopixel_buff1[16];
-uint32_t neopixel_buff2[16];
+uint32_t neopixel_buff1[32];
+uint32_t neopixel_buff2[32];
 uint32_t* xferBuff;
 uint32_t* fillingBuff;
-
+/*
 struct {
   uint8_t red;
   uint8_t green;
   uint8_t blue;
   uint8_t white;
-} pixels[12];
+} pixels[12];*/
 
 volatile uint8_t fullBuffers;
 volatile uint8_t pixelIndex;
@@ -86,8 +87,8 @@ volatile uint8_t pixelColor;
 
 
 //CAN Variables.
-CanNode *status;
-CanNode *nunchuck;
+//CanNode *status;
+//CanNode *nunchuck;
 
 //I2C Variables.
 
@@ -100,43 +101,49 @@ static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_SPI1_Init(void);
 
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void fillBuffers(uint8_t data);
+void fillBuffers(uint16_t data);
 
-void xferCompleteCallback(DMA_HandleTypeDef *hdma);
+//void xferCompleteCallback(DMA_HandleTypeDef *hdma);
 void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
 
 //CAN RTR functions
-void statusRTR(CanMessage *data);
-void statusRTR(CanMessage *data) 
-{
+//void statusRTR(CanMessage *data);
+//void statusRTR(CanMessage *data) 
+//{
   //Do nothing if recieved message.
-}
+//}
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 
-void fillBuffers(uint8_t data){
+void fillBuffers(uint16_t data){
   const uint8_t T0H = 5;
   const uint8_t T0L = 15;
   const uint8_t T1H = 10;
   const uint8_t T1L = 10;
+  //const uint8_t T0H = 255;
+  //const uint8_t T0L = 0;
+  //const uint8_t T1H = 180;
+  //const uint8_t T1L = 60;
   
   if(fullBuffers == 2) return;
   
   //setup data
-  for(int i=0; i<16; i++){
+  for(int i=0; i<32; i++){
     if(data & 0x80){
-      fillingBuff[i++] = T1H;
-      fillingBuff[i] = T1L;
+      fillingBuff[i] = T1H;
+      //fillingBuff[i] = T1L;
     }
     else{
-      fillingBuff[i++] = T0H;
-      fillingBuff[i] = T0L;
+      fillingBuff[i] = T0H;
+      //fillingBuff[i] = T0L;
     }
     data <<= 1;
   }
@@ -146,16 +153,23 @@ void fillBuffers(uint8_t data){
   
 }
 
-void xferCompleteCallback(DMA_HandleTypeDef *hdma){
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
   //switch buffers
   if(fullBuffers){
     std::swap(xferBuff, fillingBuff);
   }
   fullBuffers--;
   
-  HAL_TIM_OC_Start_DMA(&htim1, TIM_CHANNEL_3, xferBuff, 16);
+  HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
+  //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 1000);
+  //HAL_TIM_OC_Start_IT(htim, TIM_CHANNEL_3);
+  
+  //fillBuffers(0x00);
+  
+  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
 }
 
+/*
 void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma){
   switch(pixelColor){
     case 0:
@@ -174,16 +188,17 @@ void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma){
   }
   if(++pixelIndex == 12) pixelIndex = 0;
 }
-
+*/
 /* USER CODE END 0 */
 
 int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  xferBuff = neopixel_buff2;
-  fillingBuff = neopixel_buff1;
+  xferBuff = &neopixel_buff2[0];
+  fillingBuff = &neopixel_buff1[0];
   pixelIndex = 0;
+  fullBuffers = 0;
 
   /* USER CODE END 1 */
 
@@ -197,7 +212,7 @@ int main(void)
   /* USER CODE END Init */
 
   /* Configure the system clock */
-  SystemClock_Config();
+  SystemClock_Config();                   
 
   /* USER CODE BEGIN SysInit */
 
@@ -210,12 +225,17 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
   MX_TIM1_Init();
+  MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  HAL_TIM_OC_Start_DMA(&htim1, TIM_CHANNEL_3, xferBuff, 16);
-
-  CanNode status_node(WHEEL_TIME, statusRTR);
-  status = &status_node;
+  fillBuffers(0x00);
+  HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
+  //HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);  
+  //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 40);
+  //HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_3);
+  
+  //CanNode status_node(WHEEL_TIME, statusRTR);
+  //status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
 
@@ -225,7 +245,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    CanNode::checkForMessages();
+    //CanNode::checkForMessages();
   
     HAL_Delay(1);
     
@@ -241,7 +261,7 @@ int main(void)
       CDC_Transmit_FS((uint8_t*) buff, 16);
 
       //Temporaraly send time information on CAN bus.
-      status->sendData(time);
+      //status->sendData(time);
 
     }
 
@@ -250,6 +270,7 @@ int main(void)
     {
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+      //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 500);
     }
     
     /* USER CODE END WHILE */
@@ -384,7 +405,7 @@ static void MX_TIM1_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
   TIM_OC_InitTypeDef sConfigOC;
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig;
-
+ 
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -443,6 +464,45 @@ static void MX_TIM1_Init(void)
 
 }
 
+/* TIM3 init function */
+static void MX_TIM3_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 19;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+
 /** 
   * Enable DMA controller clock
   */
@@ -452,6 +512,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Channel2_3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
   /* DMA1_Channel4_5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_5_IRQn);
@@ -542,7 +605,6 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
   /* USER CODE BEGIN TIM1_MspPostInit 0 */
 
   /* USER CODE END TIM1_MspPostInit 0 */
-  
     /**TIM1 GPIO Configuration    
     PB15     ------> TIM1_CH3N 
     */
@@ -556,6 +618,26 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
   /* USER CODE BEGIN TIM1_MspPostInit 1 */
 
   /* USER CODE END TIM1_MspPostInit 1 */
+  }
+  else if(htim->Instance==TIM3)
+  {
+  /* USER CODE BEGIN TIM3_MspPostInit 0 */
+
+  /* USER CODE END TIM3_MspPostInit 0 */
+  
+    /**TIM3 GPIO Configuration    
+    PB0     ------> TIM3_CH3 
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN TIM3_MspPostInit 1 */
+
+  /* USER CODE END TIM3_MspPostInit 1 */
   }
 
 }
@@ -574,6 +656,7 @@ void _Error_Handler(char * file, int line)
   while(1) 
   {
       HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   }
   /* USER CODE END Error_Handler_Debug */ 
 }
