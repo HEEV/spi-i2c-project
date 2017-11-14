@@ -69,10 +69,10 @@ DMA_HandleTypeDef hdma_tim3_ch3;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 //buffer for holding timer values which translate into 1's and 0's
-uint32_t neopixel_buff1[32];
-uint32_t neopixel_buff2[32];
-uint32_t* xferBuff;
-uint32_t* fillingBuff;
+uint16_t neopixel_buff1[32];
+uint16_t neopixel_buff2[32];
+volatile uint16_t* xferBuff;
+volatile uint16_t* fillingBuff;
 /*
 struct {
   uint8_t red;
@@ -102,14 +102,12 @@ static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_SPI1_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void fillBuffers(uint16_t data);
+void fillBuffers(uint32_t data);
 
-//void xferCompleteCallback(DMA_HandleTypeDef *hdma);
 void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
 
 //CAN RTR functions
@@ -123,50 +121,38 @@ void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
 
 /* USER CODE BEGIN 0 */
 
-void fillBuffers(uint16_t data){
+void fillBuffers(uint32_t data){
   const uint8_t T0H = 5;
-  const uint8_t T0L = 15;
   const uint8_t T1H = 10;
-  const uint8_t T1L = 10;
-  //const uint8_t T0H = 255;
-  //const uint8_t T0L = 0;
-  //const uint8_t T1H = 180;
-  //const uint8_t T1L = 60;
   
   if(fullBuffers == 2) return;
   
   //setup data
   for(int i=0; i<32; i++){
-    if(data & 0x80){
-      fillingBuff[i] = T1H;
-      //fillingBuff[i] = T1L;
-    }
-    else{
-      fillingBuff[i] = T0H;
-      //fillingBuff[i] = T0L;
-    }
-    data <<= 1;
+    fillingBuff[i] = (data & 0x80000000) ? T1H : T0H;
+    data = data << 1;
   }
   
-  std::swap(fillingBuff, xferBuff);
+  //std::swap(xferBuff, fillingBuff);
   fullBuffers++;
   
 }
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
   //switch buffers
-  if(fullBuffers){
-    std::swap(xferBuff, fillingBuff);
-  }
   fullBuffers--;
-  
-  HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
-  //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 1000);
-  //HAL_TIM_OC_Start_IT(htim, TIM_CHANNEL_3);
+  if(fullBuffers){
+    //std::swap(xferBuff, fillingBuff);
+    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
+  }
+  else {
+    HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
+    HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+  }
   
   //fillBuffers(0x00);
   
-  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+  
 }
 
 /*
@@ -200,6 +186,9 @@ int main(void)
   pixelIndex = 0;
   fullBuffers = 0;
 
+  for(int i =0; i<32; i++){
+    xferBuff[i] = fillingBuff[i] = 0;
+  }
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -228,11 +217,9 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  fillBuffers(0x00);
-  HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
-  //HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);  
-  //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 40);
-  //HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_3);
+  //fillBuffers(0x00FF00FF);
+  //HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
+  //fillBuffers(0x00FF00FF);
   
   //CanNode status_node(WHEEL_TIME, statusRTR);
   //status = &status_node;
@@ -270,7 +257,10 @@ int main(void)
     {
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-      //__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 500);
+      
+      fillBuffers(time);
+      HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) fillingBuff, 64);
+      //fillBuffers(0xFF00FF00);
     }
     
     /* USER CODE END WHILE */
