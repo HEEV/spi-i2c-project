@@ -69,8 +69,8 @@ DMA_HandleTypeDef hdma_tim3_ch3;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 //buffer for holding timer values which translate into 1's and 0's
-uint16_t neopixel_buff1[32];
-uint16_t neopixel_buff2[32];
+uint16_t neopixel_buff1[33];
+uint16_t neopixel_buff2[33];
 volatile uint16_t* xferBuff;
 volatile uint16_t* fillingBuff;
 /*
@@ -133,21 +133,24 @@ void fillBuffers(uint32_t data){
     data = data << 1;
   }
   
-  //std::swap(xferBuff, fillingBuff);
+  fillingBuff[32] = 0;
+  //swap(xferBuff, fillingBuff);
   fullBuffers++;
   
 }
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
+  __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, 0);
+  HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
+  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   //switch buffers
   fullBuffers--;
   if(fullBuffers){
-    //std::swap(xferBuff, fillingBuff);
-    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
+  //  HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
   }
   else {
-    HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
-    HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+   // HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
+   // HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   }
   
   //fillBuffers(0x00);
@@ -258,8 +261,8 @@ int main(void)
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
       
-      fillBuffers(time);
-      HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) fillingBuff, 64);
+      fillBuffers(0xFF00FF00);
+      HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) fillingBuff, 33);
       //fillBuffers(0xFF00FF00);
     }
     
