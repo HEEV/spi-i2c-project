@@ -54,7 +54,7 @@
 #include <cstring>
 #include <utility>
 #include "usbd_cdc_if.h"
-//#include "CanNode/CanNode.h"
+#include "CanNode/CanNode.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -69,26 +69,22 @@ DMA_HandleTypeDef hdma_tim3_ch3;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 //buffer for holding timer values which translate into 1's and 0's
-uint16_t neopixel_buff1[33];
-uint16_t neopixel_buff2[33];
+volatile uint16_t neopixel_buff1[33];
+volatile uint16_t neopixel_buff2[33];
 volatile uint16_t* xferBuff;
 volatile uint16_t* fillingBuff;
-/*
+
 struct {
   uint8_t red;
   uint8_t green;
   uint8_t blue;
-  uint8_t white;
-} pixels[12];*/
+} pixels[16];
 
-volatile uint8_t fullBuffers;
+volatile int8_t fullBuffers;
 volatile uint8_t pixelIndex;
-volatile uint8_t pixelColor;
-
-
 //CAN Variables.
-//CanNode *status;
-//CanNode *nunchuck;
+CanNode *status;
+CanNode *nunchuck;
 
 //I2C Variables.
 
@@ -107,90 +103,96 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void fillBuffers(uint32_t data);
-
-void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma);
-
-//CAN RTR functions
-//void statusRTR(CanMessage *data);
-//void statusRTR(CanMessage *data) 
-//{
-  //Do nothing if recieved message.
-//}
-
+void statusRTR(CanMessage *data);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 
+//CAN RTR functions
+void statusRTR(CanMessage *data) 
+{
+  //Do nothing if recieved message.
+}
+
+void swapBuffers(volatile uint16_t* &a, volatile uint16_t* &b) {
+  volatile uint16_t* temp = a;
+  a = b;
+  b = temp;
+}
+
 void fillBuffers(uint32_t data){
-  const uint8_t T0H = 5;
-  const uint8_t T1H = 10;
+  const uint16_t T0H = 5;
+  const uint16_t T1H = 10;
   
-  if(fullBuffers == 2) return;
+  //if(fullBuffers == 2) return;
   
   //setup data
-  for(int i=0; i<32; i++){
-    fillingBuff[i] = (data & 0x80000000) ? T1H : T0H;
+  for(int i=0; i<24; i++){
+    fillingBuff[i] = (data & 0x800000) ? T1H : T0H;
     data = data << 1;
   }
   
-  fillingBuff[32] = 0;
-  //swap(xferBuff, fillingBuff);
-  fullBuffers++;
+  fillingBuff[24] = 0;
+  //fullBuffers++;
   
 }
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
-  __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, 0);
-  HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
-  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  //switch buffers
+ /* 
   fullBuffers--;
-  if(fullBuffers){
-  //  HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 32);
+  if(fullBuffers>0){
+    //switch buffers
+    //swapBuffers(fillingBuff, xferBuff); 
+    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) fillingBuff, 25);
   }
   else {
-   // HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_3);
-   // HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+  */
+  HAL_TIM_PWM_Stop(htim, TIM_CHANNEL_3);
+
+  if(pixelIndex < 16){
+    swapBuffers(xferBuff, fillingBuff);
+    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
+    uint32_t temp;
+    //temp = pixels[pixelIndex].green << 16 |
+    //       pixels[pixelIndex].red   << 8  |
+    //       pixels[pixelIndex].blue;
+
+    fillBuffers(0x000088);
+    pixelIndex++;
   }
-  
-  //fillBuffers(0x00);
+ 
+  else { 
+      for(int i=0; i<24; i++){
+          fillingBuff[i]=0;
+      } 
+      //swapBuffers(xferBuff, fillingBuff);
+      //HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
+      HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+      pixelIndex = 0;
+  }
+   
   
   
 }
 
-/*
-void xferHalfCompleteCallback(DMA_HandleTypeDef *hdma){
-  switch(pixelColor){
-    case 0:
-      fillBuffers(pixels[pixelIndex++].white);
-      break;
-    case 1:
-      fillBuffers(pixels[pixelIndex++].green);
-      break;
-    case 2:
-      fillBuffers(pixels[pixelIndex++].red);
-      break;
-    case 3:
-      fillBuffers(pixels[pixelIndex].blue);
-      pixelIndex=0;
-      break;
-  }
-  if(++pixelIndex == 12) pixelIndex = 0;
-}
-*/
 /* USER CODE END 0 */
-
 int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  xferBuff = &neopixel_buff2[0];
-  fillingBuff = &neopixel_buff1[0];
+  xferBuff = neopixel_buff2;
+  fillingBuff = neopixel_buff1;
   pixelIndex = 0;
   fullBuffers = 0;
+  uint8_t count = 0;
 
-  for(int i =0; i<32; i++){
-    xferBuff[i] = fillingBuff[i] = 0;
+  for(int i=0; i<33; i++){
+    neopixel_buff1[i] = neopixel_buff2[i] = 0;
+  }
+  for(int i=0; i<16; i++) {
+      pixels[i].red = 0;
+      pixels[i].green = 0;
+      pixels[i].blue = 0;
   }
   /* USER CODE END 1 */
 
@@ -221,11 +223,11 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   //fillBuffers(0x00FF00FF);
-  //HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
+ // HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
   //fillBuffers(0x00FF00FF);
   
-  //CanNode status_node(WHEEL_TIME, statusRTR);
-  //status = &status_node;
+  CanNode status_node(WHEEL_TIME, statusRTR);
+  status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
 
@@ -235,7 +237,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //CanNode::checkForMessages();
+    CanNode::checkForMessages();
   
     HAL_Delay(1);
     
@@ -246,24 +248,39 @@ int main(void)
       //Send the time over the USB interface.
       strcpy(buff, "time: ");
       CDC_Transmit_FS((uint8_t*) buff, 16);
-      itoa(time, buff, 10);
+      itoa(count, buff, 10);
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
 
       //Temporaraly send time information on CAN bus.
-      //status->sendData(time);
+      status->sendData(count);
 
     }
 
     //Stuff to do every half a second.
-    if(time % 500 == 0) 
+    if(time % 500  == 0) 
     {
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-      
-      fillBuffers(0xFF00FF00);
-      HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) fillingBuff, 33);
-      //fillBuffers(0xFF00FF00);
+      //fillBuffers(0x008800);
+      //swapBuffers(xferBuff, fillingBuff);
+      //fillBuffers(0x880088);
+      pixels[0].red = 0;
+      pixels[0].green = count;
+      pixels[0].blue = count;
+
+      uint32_t temp;
+      temp = pixels[0].green << 16 |
+             pixels[0].red   << 8  |
+             pixels[0].blue;
+
+      fillBuffers(0x000088);
+      swapBuffers(xferBuff, fillingBuff);
+      fillBuffers(0x880000);
+      HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
+      count++;
+      if(count > 125) {count = 0;}
+
     }
     
     /* USER CODE END WHILE */
