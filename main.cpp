@@ -241,8 +241,10 @@ int main(void)
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
 
-      //Temporaraly send time information on CAN bus.
-      status->sendData(time);
+      //Send Wii joystick information to the CAN bus.
+      uint16_t analogStick = WiiNunchuk::analogStickX << 4;
+      analogStick = analogStick || WiiNunchuk::analogStickY;
+      status->sendData(analogStick);
 
     }
 
