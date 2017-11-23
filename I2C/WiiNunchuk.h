@@ -30,4 +30,6 @@ private:
         uint8_t  analogStickY;
         bool cKeyDown;
         bool zKeyDown;
-}
+};
+
+#endif //_NUNCHUCK_DRV_H

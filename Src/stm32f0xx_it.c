@@ -43,6 +43,7 @@
 extern PCD_HandleTypeDef hpcd_USB_FS;
 extern CAN_HandleTypeDef hcan;
 extern DMA_HandleTypeDef hdma_tim1_ch3_up;
+extern DMA_HandleTypeDef hdma_tim3_ch3;
 
 /******************************************************************************/
 /*            Cortex-M0 Processor Interruption and Exception Handlers         */ 
@@ -125,6 +126,20 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f0xx.s).                    */
 /******************************************************************************/
+
+/**
+* @brief This function handles DMA1 channel 2 and 3 interrupts.
+*/
+void DMA1_Channel2_3_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel2_3_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_tim3_ch3);
+  /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel2_3_IRQn 1 */
+}
 
 /**
 * @brief This function handles DMA1 channel 4 and 5 interrupts.
