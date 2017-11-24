@@ -55,6 +55,7 @@
 #include <utility>
 #include "usbd_cdc_if.h"
 #include "CanNode/CanNode.h"
+#include "I2C/WiiNunchuk.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -210,14 +211,14 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  xferBuff = neopixel_buff2;
-  fillingBuff = neopixel_buff1;
-  DMAPixelIndex = 1;
+  //xferBuff = neopixel_buff2;
+  //fillingBuff = neopixel_buff1;
+  //DMAPixelIndex = 1;
 
   uint8_t count = 0;
   uint8_t pIndex = 0;
 
-  for(int i=0; i<33; i++){
+  /*for(int i=0; i<33; i++){
     neopixel_buff1[i] = neopixel_buff2[i] = 0;
   }
   for(int i=0; i<16; i++) {
@@ -225,7 +226,7 @@ int main(void)
       pixels[i].blue = 0;
       //pixels[i].green = gamma8[(16-i)*8];
       pixels[i].red = gamma8[(16-i)*8];
-  }
+  }*/
   /*
   pixels[1].red = gamma8[60];
   pixels[1].green = gamma8[40];
@@ -277,6 +278,9 @@ int main(void)
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
 
+  //Init the Wii nunchuk.
+  //WiiNunchuk nunchuk(&hi2c1);
+  //nunchuk.nunchuckInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -284,7 +288,8 @@ int main(void)
   while (1)
   {
     CanNode::checkForMessages();
-  
+    //nunchuk.updateNunchuckData();
+
     HAL_Delay(1);
     
     uint32_t time = HAL_GetTick();
@@ -297,11 +302,12 @@ int main(void)
       itoa(count, buff, 10);
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
-      
+
       //Send Wii joystick information to the CAN bus.
-      uint16_t analogStick = WiiNunchuk::analogStickX << 4;
-      analogStick = analogStick || WiiNunchuk::analogStickY;
-      status->sendData(analogStick);
+      //uint16_t analogStick = nunchuk.GetAnalogStickX() << 4;
+      //analogStick = analogStick | nunchuk.GetAnalogStickY();
+      //uint16_t analogStick = 0x1111;
+      //status->sendData(analogStick);
 
     }
 
@@ -311,7 +317,7 @@ int main(void)
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
       
-      uint8_t rTemp = pixels[0].red;
+      /*uint8_t rTemp = pixels[0].red;
       uint8_t gTemp = pixels[0].green;
       uint8_t bTemp = pixels[0].blue;
       for(int i=1; i<16; i++){
@@ -326,7 +332,7 @@ int main(void)
       refreshLeds();
 
       if(++count > 125) count = 0;
-      if(++pIndex >= 16) pIndex = 0;
+      if(++pIndex >= 16) pIndex = 0;*/
 
     }
     

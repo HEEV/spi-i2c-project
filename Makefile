@@ -1,5 +1,6 @@
 # Put your STM32F4 library code directory here
 CAN_DIR=CanNode
+I2C_DIR=I2C
 SRC_DIR=Src
 INC_DIR=Inc
 LIB_DIR=lib
@@ -16,6 +17,7 @@ TARGET=stm32f0xx
 
 USR_SRC := $(SRC_DIR)/*.c
 CAN_SRC := $(CAN_DIR)/*.cpp
+I2C_SRC := $(I2C_DIR)/*.cpp
 STM_SRC := $(STM_LIB_SRC)/Src/$(TARGET)*.c
 #STM_SRC += $(CMSIS_STM32)/Source/Templates/system_$(TARGET).c
 STM_SRC += $(STM_USB_CORE)/Src/*.c
@@ -58,6 +60,9 @@ STM_OBJ += $(STARTUP:.s=.o)
 CAN_SRC_EXP := $(wildcard $(CAN_SRC))
 CAN_OBJ := $(CAN_SRC_EXP:.cpp=.o)
 
+I2C_SRC_EXP := $(wildcard $(I2C_SRC))
+I2C_OBJ := $(I2C_SRC_EXP:.cpp=.o)
+
 SRC_EXP := $(wildcard $(USR_SRC))
 SRC_OBJ := $(SRC_EXP:.c=.o)
 
@@ -74,8 +79,8 @@ SRC_OBJ := $(SRC_EXP:.c=.o)
 
 all: main size
 
-main: $(CAN_OBJ) $(STM_OBJ) $(SRC_OBJ)  main.o
-	$(CXX) $(CPPFLAGS) $(INCLUDE) $(SRC_OBJ) $(CAN_OBJ) $(STM_OBJ) main.o -o $(PROJ_NAME).elf
+main: $(CAN_OBJ) $(I2C_OBJ) $(STM_OBJ) $(SRC_OBJ)  main.o
+	$(CXX) $(CPPFLAGS) $(INCLUDE) $(SRC_OBJ) $(CAN_OBJ) $(I2C_OBJ) $(STM_OBJ) main.o -o $(PROJ_NAME).elf
 	$(OBJCOPY) -O binary $(PROJ_NAME).elf $(PROJ_NAME).bin
 	$(OBJCOPY) -O ihex $(PROJ_NAME).elf $(PROJ_NAME).hex
 
@@ -87,7 +92,7 @@ StmCore: $(STM_OBJ)
 	$(AR) rcs $(LIB_DIR)/libStmCore.a $^
 
 clean:
-	rm -f *.o $(CAN_OBJ) $(STM_OBJ) $(SRC_OBJ) $(PROJ_NAME)*.elf $(PROJ_NAME)*.bin
+	rm -f *.o $(CAN_OBJ) $(I2C_OBJ) $(STM_OBJ) $(SRC_OBJ) $(PROJ_NAME)*.elf $(PROJ_NAME)*.bin
 
 size: 
 	arm-none-eabi-size $(PROJ_NAME)*.elf

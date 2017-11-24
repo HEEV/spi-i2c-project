@@ -1,6 +1,5 @@
-#include <stm32f0xx_gpio.h>
-#include <stm32f0xx_rcc.h>
-#include <stm32f0xx_i2c.h>
+#include <stm32f0xx_hal.h>
+#include <stdbool.h>
 
 #ifndef _NUNCHUK_DRV_H
 #define _NUNCHUK_DRV_H
@@ -9,8 +8,8 @@ class WiiNunchuk
 {
 public:
         WiiNunchuk(I2C_HandleTypeDef *handle);
-        nunchuckInit();
-        updateNunchuckData();
+        void nunchuckInit();
+        void updateNunchuckData();
         uint16_t GetAccelerometerX();
         uint16_t GetAccelerometerY();
         uint16_t GetAccelerometerZ();
