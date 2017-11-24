@@ -250,6 +250,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   char buff[16];
+  char numBuff[8];
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -298,8 +299,8 @@ int main(void)
     {
       //Send the time over the USB interface.
       strcpy(buff, "time: ");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
-      itoa(count, buff, 10);
+      itoa(count, numBuff, 10);
+      strcat(buff, numBuff);
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
 
