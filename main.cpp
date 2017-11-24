@@ -715,12 +715,21 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
   */
 void _Error_Handler(char * file, int line)
 {
+  char buff[32];
+  char lineBuff[8];
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   while(1) 
   {
       HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
       HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+
+      strcpy(buff, file); 
+      itoa(line, lineBuff, 10);
+      strcat(buff, lineBuff);
+      strcat(buff, " ");
+      strcat(buff, "\n\r");
+      CDC_Transmit_FS((uint8_t*) buff, 16);
   }
   /* USER CODE END Error_Handler_Debug */ 
 }
