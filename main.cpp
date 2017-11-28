@@ -211,36 +211,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  //xferBuff = neopixel_buff2;
-  //fillingBuff = neopixel_buff1;
-  //DMAPixelIndex = 1;
-
   uint8_t count = 0;
   uint8_t pIndex = 0;
+  char buff[16] = {0};
+  char numBuff[8] = {0};
 
-  /*for(int i=0; i<33; i++){
-    neopixel_buff1[i] = neopixel_buff2[i] = 0;
-  }
-  for(int i=0; i<16; i++) {
-      //pixels[i].red = gamma8[(16-i)*6];
-      pixels[i].blue = 0;
-      //pixels[i].green = gamma8[(16-i)*8];
-      pixels[i].red = gamma8[(16-i)*8];
-  }*/
-  /*
-  pixels[1].red = gamma8[60];
-  pixels[1].green = gamma8[40];
-  pixels[1].blue = gamma8[40];
-  pixels[0].red = gamma8[60];
-  pixels[0].green = gamma8[70];
-  pixels[0].blue = gamma8[80];
-  pixels[15].red = gamma8[60];
-  pixels[15].green = gamma8[70];
-  pixels[15].blue = gamma8[110];
-  */
-  //pixels[15].red = 0;
-  //pixels[15].green = 50;
-  //pixels[15].blue = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -249,8 +224,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  char buff[16];
-  char numBuff[8];
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -262,26 +235,24 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_CAN_Init();
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
-  MX_TIM1_Init();
-  MX_TIM3_Init();
+  //MX_TIM1_Init();
+  //MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
   //fillBuffers(0x00FF00FF);
  // HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
   //fillBuffers(0x00FF00FF);
   
-  CanNode status_node(WHEEL_TIME, statusRTR);
+  CanNode status_node((CanNodeType) 370, statusRTR);
   status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
 
   //Init the Wii nunchuk.
-  //WiiNunchuk nunchuk(&hi2c1);
-  //nunchuk.nunchuckInit();
+  WiiNunchuk nunchuk(&hi2c1);
+  nunchuk.nunchuckInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -289,7 +260,7 @@ int main(void)
   while (1)
   {
     CanNode::checkForMessages();
-    //nunchuk.updateNunchuckData();
+    nunchuk.updateNunchuckData();
 
     HAL_Delay(1);
     
@@ -297,18 +268,17 @@ int main(void)
     //Suff to do every second.
     if(time % 1000 == 0)
     {
+      //Send Wii joystick information to the CAN bus.
+      uint16_t analogStick = nunchuk.GetAnalogStickX() << 8;
+      analogStick |= nunchuk.GetAnalogStickY();
+      status->sendData(analogStick);
+
       //Send the time over the USB interface.
       strcpy(buff, "time: ");
-      itoa(count, numBuff, 10);
+      itoa(analogStick, numBuff, 10);
       strcat(buff, numBuff);
       strcat(buff, "\n\r");
       CDC_Transmit_FS((uint8_t*) buff, 16);
-
-      //Send Wii joystick information to the CAN bus.
-      //uint16_t analogStick = nunchuk.GetAnalogStickX() << 4;
-      //analogStick = analogStick | nunchuk.GetAnalogStickY();
-      //uint16_t analogStick = 0x1111;
-      //status->sendData(analogStick);
 
     }
 
@@ -317,23 +287,6 @@ int main(void)
     {
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-      
-      /*uint8_t rTemp = pixels[0].red;
-      uint8_t gTemp = pixels[0].green;
-      uint8_t bTemp = pixels[0].blue;
-      for(int i=1; i<16; i++){
-          pixels[i-1].red = pixels[i].red;
-          pixels[i-1].green = pixels[i].green;
-          pixels[i-1].blue = pixels[i].blue;
-      }
-      pixels[15].red = rTemp;
-      pixels[15].green = gTemp;
-      pixels[15].blue = bTemp;
-
-      refreshLeds();
-
-      if(++count > 125) count = 0;
-      if(++pIndex >= 16) pIndex = 0;*/
 
     }
     
