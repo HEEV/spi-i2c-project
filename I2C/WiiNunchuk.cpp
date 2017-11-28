@@ -22,13 +22,14 @@ void WiiNunchuk::nunchuckInit()
     //Start by sending the proper I2C commands to the Nunchuck to communicate.
 
     //We start by disabling encryption on the data.
-    uint8_t buffer[2] = {0xF0, 0x55};
+//    uint8_t buffer[2] = {0xF0, 0x55};
+    uint8_t buffer[2] = {0x40, 0x00};
     HAL_I2C_Master_Transmit(i2c, NUNCHUK_ADDRESS, buffer, 2, 100);
 
-    buffer[0] = 0xFB;
-    buffer[1] = 0x00;
+    //buffer[0] = 0xFB;
+    //buffer[1] = 0x00;
     //Now actually init the controller.
-    HAL_I2C_Master_Transmit(i2c, NUNCHUK_ADDRESS, buffer, 2, 100);
+    //HAL_I2C_Master_Transmit(i2c, NUNCHUK_ADDRESS, buffer, 2, 100);
 }
 
 void WiiNunchuk::updateNunchuckData()

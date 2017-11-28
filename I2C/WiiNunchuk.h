@@ -20,7 +20,7 @@ public:
 
 private:
         I2C_HandleTypeDef *i2c;
-        const uint16_t NUNCHUK_ADDRESS = 0x52;
+        const uint16_t NUNCHUK_ADDRESS = 0xA4;
 
         uint16_t accelerometerX;
         uint16_t accelerometerY;
