@@ -29,11 +29,11 @@ PROJ_NAME=CanNode
 
 # Normally you shouldn't need to change anything below this line!
 #######################################################################################
-
-CC=arm-none-eabi-gcc
-CXX=arm-none-eabi-g++
-AR=arm-none-eabi-ar
-OBJCOPY=arm-none-eabi-objcopy
+TOOLPATH=/home/ryan/Downloads/gcc-arm-none-eabi-6-2017-q2-update/bin/
+CC=$(TOOLPATH)arm-none-eabi-gcc
+CXX=$(TOOLPATH)arm-none-eabi-g++
+AR=$(TOOLPATH)arm-none-eabi-ar
+OBJCOPY=$(TOOLPATH)arm-none-eabi-objcopy
 
 ODIR=obj
 
