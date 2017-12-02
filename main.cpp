@@ -270,8 +270,8 @@ int main(void)
     {
       nunchuk.updateNunchuckData();
       //Send Wii joystick information to the CAN bus.
-      uint16_t analogStick = nunchuk.GetAccelerometerX();// << 8;
-      //analogStick |= nunchuk.GetAnalogStickY();
+      uint16_t analogStick = nunchuk.GetAnalogStickX() << 8;
+      analogStick |= nunchuk.GetAnalogStickY();
       status->sendData(analogStick);
 
       //Send the time over the USB interface.
