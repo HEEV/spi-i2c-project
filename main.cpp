@@ -140,6 +140,8 @@ void getWiiJoystick(CanMessage *data)
   uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
 
   pixels[0].green = axisX;
+  //Flash light on and off.
+  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 }
 
 void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
@@ -284,7 +286,7 @@ int main(void)
   CanNode status_node(WHEEL_TIME, statusRTR);
   status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
-  status->addFilter(50, getWiiJoystick);
+  status->addFilter(60, getWiiJoystick);
 
   /* USER CODE END 2 */
 
@@ -308,15 +310,14 @@ int main(void)
       CDC_Transmit_FS((uint8_t*) buff, 16);
 
       //Temporaraly send time information on CAN bus.
-      status->sendData(count);
+      //status->sendData(count);
 
     }
 
     //Stuff to do every half a second.
     if(time % 50 == 0) 
     {
-      //Flash light on and off.
-      HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+      
       
       uint8_t rTemp = pixels[0].red;
       uint8_t gTemp = pixels[0].green;
