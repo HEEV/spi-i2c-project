@@ -134,26 +134,16 @@ void statusRTR(CanMessage *data)
 
 void getWiiJoystick(CanMessage *data) 
 {
+  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
   uint16_t tempData;
-  CanState success = CanNode::getData(data, (uint16_t*)tempData);
+  CanState success = CanNode::getData_uint16(data, (uint16_t*)&tempData);
   uint8_t axisY = (uint8_t)(tempData & 0xFF);
   uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
 
   pixels[0].green = 10;
   //Flash light on and off.
-  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-  char buff[18] = {0};
   
-
-  if(success == INVALID_TYPE)
-  {
-    tempData = success;
-  }
-
-
-  itoa(tempData, buff, 10);
-  strcat(buff, "\n");
-  CDC_Transmit_FS((uint8_t*) buff, 18);
+  char buff[18] = {0};
 }
 
 void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
