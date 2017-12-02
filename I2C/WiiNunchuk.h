@@ -19,16 +19,19 @@ public:
         bool isZKeyDown();
 
 private:
+
+        void decrypt(uint8_t buffer[]);
+
         I2C_HandleTypeDef *i2c;
         const uint16_t NUNCHUK_ADDRESS = 0xA4;
-
-        uint16_t accelerometerX;
-        uint16_t accelerometerY;
-        uint16_t accelerometerZ;
-        uint8_t  analogStickX;
-        uint8_t  analogStickY;
-        bool cKeyDown;
-        bool zKeyDown;
+        const uint16_t NUNCHUK_READ_ADDR = 0xA5;
+        volatile uint16_t accelerometerX;
+        volatile uint16_t accelerometerY;
+        volatile uint16_t accelerometerZ;
+        volatile uint8_t  analogStickX;
+        volatile uint8_t  analogStickY;
+        volatile bool cKeyDown;
+        volatile bool zKeyDown;
 };
 
 #endif //_NUNCHUCK_DRV_H

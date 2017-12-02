@@ -260,7 +260,7 @@ int main(void)
   while (1)
   {
     CanNode::checkForMessages();
-    nunchuk.updateNunchuckData();
+    //
 
     HAL_Delay(1);
     
@@ -268,13 +268,14 @@ int main(void)
     //Suff to do every second.
     if(time % 1000 == 0)
     {
+      nunchuk.updateNunchuckData();
       //Send Wii joystick information to the CAN bus.
-      uint16_t analogStick = nunchuk.GetAnalogStickX() << 8;
-      analogStick |= nunchuk.GetAnalogStickY();
+      uint16_t analogStick = nunchuk.GetAccelerometerX();// << 8;
+      //analogStick |= nunchuk.GetAnalogStickY();
       status->sendData(analogStick);
 
       //Send the time over the USB interface.
-      strcpy(buff, "time: ");
+      strcpy(buff, "stick: ");
       itoa(analogStick, numBuff, 10);
       strcat(buff, numBuff);
       strcat(buff, "\n\r");
@@ -287,7 +288,9 @@ int main(void)
     {
       //Flash light on and off.
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+      //Poll Wii nunchuck.
 
+      
     }
     
     /* USER CODE END WHILE */
