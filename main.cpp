@@ -245,7 +245,7 @@ int main(void)
  // HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
   //fillBuffers(0x00FF00FF);
   
-  CanNode status_node((CanNodeType) 370, statusRTR);
+  CanNode status_node((CanNodeType) 50, statusRTR);
   status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
