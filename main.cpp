@@ -132,6 +132,16 @@ void statusRTR(CanMessage *data)
   //Do nothing if recieved message.
 }
 
+void getWiiJoystick(CanMessage *data) 
+{
+  uint16_t tempData;
+  CanNode::getData(data, (uint16_t*)tempData);
+  uint8_t axisY = (uint8_t)(tempData & 0xFF);
+  uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
+
+  pixels[0].green = axisX;
+}
+
 void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
   volatile uint8_t* temp = a;
   a = b;
@@ -275,7 +285,7 @@ int main(void)
   CanNode status_node(WHEEL_TIME, statusRTR);
   status = &status_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
-  //nodePtr->addFilter(filterId, handler);
+  status->addFilter(50, getWiiJoystick);
 
   /* USER CODE END 2 */
 
