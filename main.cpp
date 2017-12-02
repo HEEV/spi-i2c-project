@@ -132,6 +132,30 @@ void statusRTR(CanMessage *data)
   //Do nothing if recieved message.
 }
 
+void getWiiJoystick(CanMessage *data) 
+{
+  uint16_t tempData;
+  CanState success = CanNode::getData(data, (uint16_t*)tempData);
+  uint8_t axisY = (uint8_t)(tempData & 0xFF);
+  uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
+
+  pixels[0].green = 10;
+  //Flash light on and off.
+  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  char buff[18] = {0};
+  
+
+  if(success == INVALID_TYPE)
+  {
+    tempData = success;
+  }
+
+
+  itoa(tempData, buff, 10);
+  strcat(buff, "\n");
+  CDC_Transmit_FS((uint8_t*) buff, 18);
+}
+
 void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
   volatile uint8_t* temp = a;
   a = b;
@@ -261,21 +285,16 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_CAN_Init();
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  //fillBuffers(0x00FF00FF);
- // HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 64);
-  //fillBuffers(0x00FF00FF);
   
   CanNode status_node(WHEEL_TIME, statusRTR);
   status = &status_node;
-  //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
-  //nodePtr->addFilter(filterId, handler);
+  status->addFilter(60, getWiiJoystick);
 
   /* USER CODE END 2 */
 
@@ -283,32 +302,19 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    CanNode::checkForMessages();
-  
     HAL_Delay(1);
     
     uint32_t time = HAL_GetTick();
-    //Suff to do every second.
-    if(time % 1000 == 0)
+
+    //Every 10ms
+    if(time % 7 == 0)
     {
-      //Send the time over the USB interface.
-      strcpy(buff, "time: ");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
-      itoa(count, buff, 10);
-      strcat(buff, "\n\r");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
-
-      //Temporaraly send time information on CAN bus.
-      status->sendData(count);
-
+      CanNode::checkForMessages();
     }
 
     //Stuff to do every half a second.
     if(time % 50 == 0) 
     {
-      //Flash light on and off.
-      HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-      
       uint8_t rTemp = pixels[0].red;
       uint8_t gTemp = pixels[0].green;
       uint8_t bTemp = pixels[0].blue;
@@ -325,9 +331,19 @@ int main(void)
 
       if(++count > 125) count = 0;
       if(++pIndex >= 16) pIndex = 0;
-
     }
-    
+
+    //Suff to do every second.
+    /*if(time % 1000 == 0)
+    {
+      //Send the time over the USB interface.
+      strcpy(buff, "time: ");
+      CDC_Transmit_FS((uint8_t*) buff, 16);
+      itoa(count, buff, 10);
+      strcat(buff, "\n\r");
+      CDC_Transmit_FS((uint8_t*) buff, 16);
+    }*/
+
     /* USER CODE END WHILE */
   }
   
