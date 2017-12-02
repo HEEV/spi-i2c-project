@@ -266,7 +266,7 @@ int main(void)
     
     uint32_t time = HAL_GetTick();
     //Suff to do every second.
-    if(time % 1000 == 0)
+    if(time % 250 == 0)
     {
       nunchuk.updateNunchuckData();
       //Send Wii joystick information to the CAN bus.
@@ -275,11 +275,11 @@ int main(void)
       status->sendData(analogStick);
 
       //Send the time over the USB interface.
-      strcpy(buff, "stick: ");
+      /*strcpy(buff, "stick: ");
       itoa(analogStick, numBuff, 10);
       strcat(buff, numBuff);
       strcat(buff, "\n\r");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
+      CDC_Transmit_FS((uint8_t*) buff, 16);*/
 
     }
 
