@@ -132,18 +132,117 @@ void statusRTR(CanMessage *data)
   //Do nothing if recieved message.
 }
 
+void clearLEDs()
+{
+  for(int i = 0; i < 16; i++)
+  {
+    pixels[i].red = 0;
+    pixels[i].green = 0;
+    pixels[i].blue = 0;
+  }
+}
+
+//Global var for enabling rotation on the Red LED's
+volatile bool enableRotation = false;
+
 void getWiiJoystick(CanMessage *data) 
 {
+  //Flash LED when recieving a CAN message.
   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+  //Now we need to parse out the data from the recieved message.
   uint16_t tempData;
-  CanState success = CanNode::getData_uint16(data, (uint16_t*)&tempData);
+  CanNode::getData_uint16(data, (uint16_t*)&tempData);
   uint8_t axisY = (uint8_t)(tempData & 0xFF);
   uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
 
-  pixels[0].green = 10;
-  //Flash light on and off.
-  
-  char buff[18] = {0};
+  //Set up one varable to adjust the brighness of the LED based on how
+  // far the stick travels in one direction.
+  uint8_t brightness = 0;
+
+  //Case when we are in the dead zone.
+  if((axisX < 144 && axisX > 120) && (axisY < 144 && axisY > 120))
+  {
+    for(int i = 0; i < 16; i++)
+    {
+      pixels[i].green = 0;
+    }
+
+    //And now we enable 'Loading' Red LED's only the first time through though.
+    if(enableRotation == false)
+    {
+      for(int i=0; i<16; i++) 
+      {
+        pixels[i].red = gamma8[(16-i)*8];
+      }
+      enableRotation = true;
+    }
+  }
+  else //For the case when we get movement from the Wii Nunchuck.
+  {
+    enableRotation = false;
+    clearLEDs();
+  }
+
+  //Build X axis LED array.
+  if(axisX > 144)
+  {
+    brightness = axisX % 144;
+    pixels[0].green = brightness;
+    pixels[1].green = brightness;
+    pixels[2].green = brightness;
+    pixels[3].green = brightness;
+
+    //Reset other X LEDs
+    pixels[8].green = 0;
+    pixels[9].green = 0;
+    pixels[10].green = 0;
+    pixels[11].green = 0;
+  }
+  else if(axisX <  120)
+  {
+    brightness = (120 - axisX);
+    pixels[8].green = brightness;
+    pixels[9].green = brightness;
+    pixels[10].green = brightness;
+    pixels[11].green = brightness;
+
+    //Reset other LEDs
+    pixels[0].green = 0;
+    pixels[1].green = 0;
+    pixels[2].green = 0;
+    pixels[3].green = 0;
+  }
+
+  //Now assign the Y axis LEDs
+  if(axisY < 120)
+  {
+    brightness = (120 - axisY);
+    pixels[12].green = brightness;
+    pixels[13].green = brightness;
+    pixels[14].green = brightness;
+    pixels[15].green = brightness;
+
+    //Reset other Y LEDs
+    pixels[4].green = 0;
+    pixels[5].green = 0;
+    pixels[6].green = 0;
+    pixels[7].green = 0;
+  }
+  else if(axisY >  144)
+  {
+    brightness = axisY % 144;
+    pixels[4].green = brightness;
+    pixels[5].green = brightness;
+    pixels[6].green = brightness;
+    pixels[7].green = brightness;
+
+    //Reset other Y LEDs
+    pixels[12].green = 0;
+    pixels[13].green = 0;
+    pixels[14].green = 0;
+    pixels[15].green = 0;
+  }
 }
 
 void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
@@ -234,26 +333,7 @@ int main(void)
   for(int i=0; i<33; i++){
     neopixel_buff1[i] = neopixel_buff2[i] = 0;
   }
-  for(int i=0; i<16; i++) {
-      //pixels[i].red = gamma8[(16-i)*6];
-      pixels[i].blue = 0;
-      //pixels[i].green = gamma8[(16-i)*8];
-      pixels[i].red = gamma8[(16-i)*8];
-  }
-  /*
-  pixels[1].red = gamma8[60];
-  pixels[1].green = gamma8[40];
-  pixels[1].blue = gamma8[40];
-  pixels[0].red = gamma8[60];
-  pixels[0].green = gamma8[70];
-  pixels[0].blue = gamma8[80];
-  pixels[15].red = gamma8[60];
-  pixels[15].green = gamma8[70];
-  pixels[15].blue = gamma8[110];
-  */
-  //pixels[15].red = 0;
-  //pixels[15].green = 50;
-  //pixels[15].blue = 0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -305,17 +385,20 @@ int main(void)
     //Stuff to do every half a second.
     if(time % 50 == 0) 
     {
-      uint8_t rTemp = pixels[0].red;
-      uint8_t gTemp = pixels[0].green;
-      uint8_t bTemp = pixels[0].blue;
-      for(int i=1; i<16; i++){
-          pixels[i-1].red = pixels[i].red;
-          pixels[i-1].green = pixels[i].green;
-          pixels[i-1].blue = pixels[i].blue;
+      if(enableRotation)
+      {
+        uint8_t rTemp = pixels[0].red;
+        uint8_t gTemp = pixels[0].green;
+        uint8_t bTemp = pixels[0].blue;
+        for(int i=1; i<16; i++){
+            pixels[i-1].red = pixels[i].red;
+            pixels[i-1].green = pixels[i].green;
+            pixels[i-1].blue = pixels[i].blue;
+        }
+        pixels[15].red = rTemp;
+        pixels[15].green = gTemp;
+        pixels[15].blue = bTemp;
       }
-      pixels[15].red = rTemp;
-      pixels[15].green = gTemp;
-      pixels[15].blue = bTemp;
 
       refreshLeds();
 
