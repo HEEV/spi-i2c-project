@@ -147,6 +147,9 @@ volatile bool enableRotation = false;
 
 void getWiiJoystick(CanMessage *data) 
 {
+  const uint8_t DEADZONE = 20;
+  const uint8_t MID = 128;
+
   //Flash LED when recieving a CAN message.
   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
@@ -161,8 +164,9 @@ void getWiiJoystick(CanMessage *data)
   uint8_t brightness = 0;
 
   //Case when we are in the dead zone.
-  if((axisX < 144 && axisX > 120) && (axisY < 144 && axisY > 120))
-  {
+  if ((axisX < MID + DEADZONE && axisX > MID - DEADZONE) &&
+      (axisY < MID + DEADZONE && axisY > MID - DEADZONE)) {
+
     for(int i = 0; i < 16; i++)
     {
       pixels[i].green = 0;
@@ -185,63 +189,46 @@ void getWiiJoystick(CanMessage *data)
   }
 
   //Build X axis LED array.
-  if(axisX > 144)
+  if(axisX > MID+DEADZONE)
   {
-    brightness = axisX % 144;
+    brightness = axisX - MID;
+    brightness = gamma8[brightness];
     pixels[0].green = brightness;
     pixels[1].green = brightness;
     pixels[2].green = brightness;
     pixels[3].green = brightness;
 
-    //Reset other X LEDs
-    pixels[8].green = 0;
-    pixels[9].green = 0;
-    pixels[10].green = 0;
-    pixels[11].green = 0;
   }
-  else if(axisX <  120)
+  else if(axisX <  MID-DEADZONE)
   {
-    brightness = (120 - axisX);
+    brightness = (MID - axisX);
+    brightness = gamma8[brightness];
     pixels[8].green = brightness;
     pixels[9].green = brightness;
     pixels[10].green = brightness;
     pixels[11].green = brightness;
 
-    //Reset other LEDs
-    pixels[0].green = 0;
-    pixels[1].green = 0;
-    pixels[2].green = 0;
-    pixels[3].green = 0;
   }
 
   //Now assign the Y axis LEDs
-  if(axisY < 120)
+  if(axisY < MID-DEADZONE)
   {
-    brightness = (120 - axisY);
+    brightness = (MID - axisY);
+    brightness = gamma8[brightness];
     pixels[12].green = brightness;
     pixels[13].green = brightness;
     pixels[14].green = brightness;
     pixels[15].green = brightness;
 
-    //Reset other Y LEDs
-    pixels[4].green = 0;
-    pixels[5].green = 0;
-    pixels[6].green = 0;
-    pixels[7].green = 0;
   }
-  else if(axisY >  144)
+  else if(axisY > MID+DEADZONE)
   {
-    brightness = axisY % 144;
+    brightness = axisY - MID;
+    brightness = gamma8[brightness];
     pixels[4].green = brightness;
     pixels[5].green = brightness;
     pixels[6].green = brightness;
     pixels[7].green = brightness;
-
-    //Reset other Y LEDs
-    pixels[12].green = 0;
-    pixels[13].green = 0;
-    pixels[14].green = 0;
-    pixels[15].green = 0;
   }
 }
 
@@ -377,7 +364,7 @@ int main(void)
     uint32_t time = HAL_GetTick();
 
     //Every 10ms
-    if(time % 7 == 0)
+    if(time % 20 == 0)
     {
       CanNode::checkForMessages();
     }
