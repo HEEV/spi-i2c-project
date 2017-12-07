@@ -266,13 +266,14 @@ int main(void)
     
     uint32_t time = HAL_GetTick();
     //Suff to do every second.
-    if(time % 250 == 0)
+    if(time % 100 == 0)
     {
       nunchuk.updateNunchuckData();
       //Send Wii joystick information to the CAN bus.
       uint16_t analogStick = nunchuk.GetAnalogStickX() << 8;
       analogStick |= nunchuk.GetAnalogStickY();
-      status->sendData(analogStick);
+      status->sendData_uint16(analogStick);
+      HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
       //Send the time over the USB interface.
       /*strcpy(buff, "stick: ");
@@ -283,16 +284,6 @@ int main(void)
 
     }
 
-    //Stuff to do every half a second.
-    if(time % 50 == 0) 
-    {
-      //Flash light on and off.
-      HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-      //Poll Wii nunchuck.
-
-      
-    }
-    
     /* USER CODE END WHILE */
   }
   
