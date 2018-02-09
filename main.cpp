@@ -266,7 +266,7 @@ int main(void)
     
     uint32_t time = HAL_GetTick();
     //Suff to do every second.
-    if(time % 100 == 0)
+    if(time % 50 == 0)
     {
       nunchuk.updateNunchuckData();
       //Send Wii joystick information to the CAN bus.
