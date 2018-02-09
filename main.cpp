@@ -102,6 +102,10 @@ volatile uint8_t DMAPixelIndex;
 //CAN Variables.
 CanNode *status;
 CanNode *nunchuck;
+int8_t axisX;
+int8_t axisY;
+const uint8_t DEADZONE = 10;
+const uint8_t MID = 128;
 
 //I2C Variables.
 
@@ -147,8 +151,6 @@ volatile bool enableRotation = false;
 
 void getWiiJoystick(CanMessage *data) 
 {
-  const uint8_t DEADZONE = 20;
-  const uint8_t MID = 128;
 
   //Flash LED when recieving a CAN message.
   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
@@ -156,79 +158,32 @@ void getWiiJoystick(CanMessage *data)
   //Now we need to parse out the data from the recieved message.
   uint16_t tempData;
   CanNode::getData_uint16(data, (uint16_t*)&tempData);
-  uint8_t axisY = (uint8_t)(tempData & 0xFF);
-  uint8_t axisX = (uint8_t)((tempData >> 8) & 0xFF);
+  axisY = (uint8_t)(tempData & 0xFF);
+  axisX = (uint8_t)((tempData >> 8) & 0xFF);
 
-  //Set up one varable to adjust the brighness of the LED based on how
-  // far the stick travels in one direction.
-  uint8_t brightness = 0;
+  axisX -= MID;
+  axisY -= MID;
 
-  //Case when we are in the dead zone.
-  if ((axisX < MID + DEADZONE && axisX > MID - DEADZONE) &&
-      (axisY < MID + DEADZONE && axisY > MID - DEADZONE)) {
+  // Case when we are in the dead zone.
+  if ((axisX < DEADZONE && axisX > -DEADZONE) &&
+      (axisY < DEADZONE && axisY > -DEADZONE)) {
 
-    for(int i = 0; i < 16; i++)
-    {
+    for (int i = 0; i < 16; i++) {
       pixels[i].green = 0;
     }
 
-    //And now we enable 'Loading' Red LED's only the first time through though.
-    if(enableRotation == false)
-    {
-      for(int i=0; i<16; i++) 
-      {
-        pixels[i].red = gamma8[(16-i)*8];
+    // And now we enable 'Loading' Red LED's only the first time through
+    // though.
+    if (enableRotation == false) {
+      for (int i = 0; i < 16; i++) {
+        pixels[i].red = gamma8[(16 - i) * 8];
       }
       enableRotation = true;
     }
-  }
-  else //For the case when we get movement from the Wii Nunchuck.
+  } else // For the case when we get movement from the Wii Nunchuck.
   {
     enableRotation = false;
     clearLEDs();
-  }
-
-  //Build X axis LED array.
-  if(axisX > MID+DEADZONE)
-  {
-    brightness = axisX - MID;
-    brightness = gamma8[brightness];
-    pixels[0].green = brightness;
-    pixels[1].green = brightness;
-    pixels[2].green = brightness;
-    pixels[3].green = brightness;
-
-  }
-  else if(axisX <  MID-DEADZONE)
-  {
-    brightness = (MID - axisX);
-    brightness = gamma8[brightness];
-    pixels[8].green = brightness;
-    pixels[9].green = brightness;
-    pixels[10].green = brightness;
-    pixels[11].green = brightness;
-
-  }
-
-  //Now assign the Y axis LEDs
-  if(axisY < MID-DEADZONE)
-  {
-    brightness = (MID - axisY);
-    brightness = gamma8[brightness];
-    pixels[12].green = brightness;
-    pixels[13].green = brightness;
-    pixels[14].green = brightness;
-    pixels[15].green = brightness;
-
-  }
-  else if(axisY > MID+DEADZONE)
-  {
-    brightness = axisY - MID;
-    brightness = gamma8[brightness];
-    pixels[4].green = brightness;
-    pixels[5].green = brightness;
-    pixels[6].green = brightness;
-    pixels[7].green = brightness;
   }
 }
 
@@ -306,26 +261,29 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
 }
 
 /* USER CODE END 0 */
-int main(void)
-{
+int main(void) {
 
   /* USER CODE BEGIN 1 */
   xferBuff = neopixel_buff2;
   fillingBuff = neopixel_buff1;
   DMAPixelIndex = 1;
+  axisX = axisY = 128;
+  enableRotation = true;
 
   uint8_t count = 0;
   uint8_t pIndex = 0;
 
-  for(int i=0; i<33; i++){
+  for (int i = 0; i < 33; i++) {
     neopixel_buff1[i] = neopixel_buff2[i] = 0;
   }
 
   /* USER CODE END 1 */
 
-  /* MCU Configuration----------------------------------------------------------*/
+  /* MCU
+   * Configuration----------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick.
+   */
   HAL_Init();
 
   /* USER CODE BEGIN Init */
@@ -333,7 +291,7 @@ int main(void)
   /* USER CODE END Init */
 
   /* Configure the system clock */
-  SystemClock_Config();                   
+  SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
 
@@ -348,39 +306,39 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  
+
   CanNode status_node(WHEEL_TIME, statusRTR);
   status = &status_node;
   status->addFilter(60, getWiiJoystick);
 
+  for (int i = 0; i < 16; i++) {
+    pixels[i].red = gamma8[(16 - i) * 8];
+  }
+  enableRotation = true;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
     HAL_Delay(1);
-    
+
     uint32_t time = HAL_GetTick();
 
-    //Every 10ms
-    if(time % 20 == 0)
-    {
+    // Every 10ms
+    if (time % 20 == 0) {
       CanNode::checkForMessages();
     }
 
-    //Stuff to do every half a second.
-    if(time % 50 == 0) 
-    {
-      if(enableRotation)
-      {
+    // Stuff to do every half a second.
+    if (time % 50 == 0) {
+      if (enableRotation) {
         uint8_t rTemp = pixels[0].red;
         uint8_t gTemp = pixels[0].green;
         uint8_t bTemp = pixels[0].blue;
-        for(int i=1; i<16; i++){
-            pixels[i-1].red = pixels[i].red;
-            pixels[i-1].green = pixels[i].green;
-            pixels[i-1].blue = pixels[i].blue;
+        for (int i = 1; i < 16; i++) {
+          pixels[i - 1].red = pixels[i].red;
+          pixels[i - 1].green = pixels[i].green;
+          pixels[i - 1].blue = pixels[i].blue;
         }
         pixels[15].red = rTemp;
         pixels[15].green = gTemp;
@@ -389,28 +347,40 @@ int main(void)
 
       refreshLeds();
 
-      if(++count > 125) count = 0;
-      if(++pIndex >= 16) pIndex = 0;
+      if (++count > 125)
+        count = 0;
+      if (++pIndex >= 16)
+        pIndex = 0;
     }
 
-    //Suff to do every second.
-    /*if(time % 1000 == 0)
-    {
-      //Send the time over the USB interface.
-      strcpy(buff, "time: ");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
-      itoa(count, buff, 10);
-      strcat(buff, "\n\r");
-      CDC_Transmit_FS((uint8_t*) buff, 16);
-    }*/
+    uint8_t lookup[4] = {0}; 
+    if(axisX > DEADZONE) {
+        lookup[0] = axisX;
+    }
+    else if(axisX < -DEADZONE){
+        lookup[2] = -axisX;
+    }
+    if(axisY > DEADZONE) {
+        lookup[1] = axisY;
+    }
+    else if(axisY < -DEADZONE){
+        lookup[3] = -axisY;
+    }
 
-    /* USER CODE END WHILE */
+    if(axisX > DEADZONE || axisX < -DEADZONE ||
+       axisY > DEADZONE || axisY < -DEADZONE){
+
+      for (uint8_t i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+          pixels[i * 4 + j].green = gamma8[lookup[i]];
+        }
+      }
+
+    }
   }
-  
   /* USER CODE BEGIN 3 */
-  
-  /* USER CODE END 3 */
 
+  /* USER CODE END 3 */
 }
 
 /** System Clock Configuration
