@@ -90,7 +90,8 @@ const uint8_t gamma8[] = {
   115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
   144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
   177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
-  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
+  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255,
+  255, 255 };
 
 struct {
   uint8_t red;
@@ -102,10 +103,10 @@ volatile uint8_t DMAPixelIndex;
 //CAN Variables.
 CanNode *status;
 CanNode *nunchuck;
-int8_t axisX;
-int8_t axisY;
+int16_t axisX;
+int16_t axisY;
 const uint8_t DEADZONE = 10;
-const uint8_t MID = 128;
+const uint8_t MID = 127;
 
 //I2C Variables.
 
@@ -345,6 +346,28 @@ int main(void) {
         pixels[15].blue = bTemp;
       }
 
+      uint8_t lookup[4] = {0};
+      if (axisX > DEADZONE) {
+        lookup[0] = axisX;
+      } else if (axisX < -DEADZONE) {
+        lookup[2] = -axisX;
+      }
+      if (axisY > DEADZONE) {
+        lookup[1] = axisY;
+      } else if (axisY < -DEADZONE) {
+        lookup[3] = -axisY;
+      }
+
+      if (axisX > DEADZONE || axisX < -DEADZONE || axisY > DEADZONE ||
+          axisY < -DEADZONE) {
+
+        for (uint8_t i = 0; i < 4; i++) {
+          for (int j = 0; j < 4; j++) {
+            pixels[i * 4 + j].green = gamma8[lookup[i]];
+          }
+        }
+      }
+
       refreshLeds();
 
       if (++count > 125)
@@ -353,30 +376,6 @@ int main(void) {
         pIndex = 0;
     }
 
-    uint8_t lookup[4] = {0}; 
-    if(axisX > DEADZONE) {
-        lookup[0] = axisX;
-    }
-    else if(axisX < -DEADZONE){
-        lookup[2] = -axisX;
-    }
-    if(axisY > DEADZONE) {
-        lookup[1] = axisY;
-    }
-    else if(axisY < -DEADZONE){
-        lookup[3] = -axisY;
-    }
-
-    if(axisX > DEADZONE || axisX < -DEADZONE ||
-       axisY > DEADZONE || axisY < -DEADZONE){
-
-      for (uint8_t i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-          pixels[i * 4 + j].green = gamma8[lookup[i]];
-        }
-      }
-
-    }
   }
   /* USER CODE BEGIN 3 */
 
