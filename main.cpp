@@ -75,34 +75,10 @@ volatile uint8_t neopixel_buff2[33];
 volatile uint8_t* xferBuff;
 volatile uint8_t* fillingBuff;
 
-const uint8_t gamma8[] = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
-    1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
-    2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
-    5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10,
-   10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
-   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
-   25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
-   37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
-   51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
-   69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
-   90, 92, 93, 95, 96, 98, 99,101,102,104,105,107,109,110,112,114,
-  115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
-  144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
-  177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
-  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
-
-struct {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-} pixels[16];
-
 volatile uint8_t DMAPixelIndex;
 //CAN Variables.
 CanNode *status;
-CanNode *nunchuck;
+CanNode *reset;
 
 //I2C Variables.
 
@@ -120,9 +96,6 @@ static void MX_TIM3_Init(void);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void fillDMABuffer(uint32_t data);
-void refreshLeds();
-void statusRTR(CanMessage *data);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -131,79 +104,6 @@ void statusRTR(CanMessage *data);
 void statusRTR(CanMessage *data) 
 {
   //Do nothing if recieved message.
-}
-
-void swapBuffers(volatile uint8_t* &a, volatile uint8_t* &b) {
-  volatile uint8_t* temp = a;
-  a = b;
-  b = temp;
-}
-
-void fillDMABuffer(uint32_t data){
-  const uint16_t T0H = 5;
-  const uint16_t T1H = 10;
-  
-  //setup data
-  for(int i=0; i<24; i++){
-    fillingBuff[i] = (data & 0x800000) ? T1H : T0H;
-    data = data << 1;
-  }
-  
-  //make sure to end on a low
-  fillingBuff[24] = 0;
-  
-}
-
-void refreshLeds() {
-
-    uint32_t temp;
-    //fill the buffer for the first LED
-    temp = pixels[0].green << 16 |
-           pixels[0].red   << 8  |
-           pixels[0].blue;
-    fillDMABuffer(temp);
-    swapBuffers(xferBuff, fillingBuff);
-    
-    //start the first DMA transfer
-    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
-    
-    //fill the buffer for the second LED
-    temp = pixels[1].green << 16 |
-           pixels[1].red   << 8  |
-           pixels[1].blue;
-    fillDMABuffer(temp);
-}
-
-void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim){
-  //necessary to get correct waveform
-  HAL_TIM_PWM_Stop(htim, TIM_CHANNEL_3);
-
-  swapBuffers(xferBuff, fillingBuff);
-  if(DMAPixelIndex < 16){
-    //start the next DMA transfer
-    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
-
-    //fill up the next buffer
-    uint32_t temp;
-    temp = pixels[DMAPixelIndex].green << 16 |
-           pixels[DMAPixelIndex].red   << 8  |
-           pixels[DMAPixelIndex].blue;
-
-    fillDMABuffer(temp);
-    DMAPixelIndex++;
-
-  }
-  //send the last message
-  else if(DMAPixelIndex == 16){
-    HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_3, (uint32_t*) xferBuff, 25);
-    DMAPixelIndex++;
-  }
-  else { 
-      //reset the index
-      DMAPixelIndex = 2;
-      //blink some lights
-      HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  }
 }
 
 /* USER CODE END 0 */
@@ -215,6 +115,7 @@ int main(void)
   uint8_t pIndex = 0;
   char buff[16] = {0};
   char numBuff[8] = {0};
+  bool ZKeyPressed = false;
 
   /* USER CODE END 1 */
 
@@ -237,8 +138,6 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
-  //MX_TIM1_Init();
-  //MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
   //fillBuffers(0x00FF00FF);
@@ -247,6 +146,8 @@ int main(void)
   
   CanNode status_node((CanNodeType) 60, statusRTR);
   status = &status_node;
+  CanNode reset_node((CanNodeType) 64, statusRTR);
+  reset = &reset_node;
   //uint16_t id = can_add_filter_mask(id_to_filter, id_mask);
   //nodePtr->addFilter(filterId, handler);
 
@@ -273,6 +174,17 @@ int main(void)
       uint16_t analogStick = nunchuk.GetAnalogStickX() << 8;
       analogStick |= nunchuk.GetAnalogStickY();
       status->sendData_uint16(analogStick);
+
+      if(ZKeyPressed == false && nunchuk.isZKeyDown()){
+          ZKeyPressed = true;
+          reset->sendData_uint8(0xff);
+          HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+      }
+      else if(!nunchuk.isZKeyDown()){
+          ZKeyPressed = false;
+          HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+      }
+     
       HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
       //Send the time over the USB interface.

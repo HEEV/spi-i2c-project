@@ -11,8 +11,8 @@ WiiNunchuk::WiiNunchuk(I2C_HandleTypeDef *handle)
      accelerometerZ = 0x00;
      analogStickX = 0x66;
      analogStickY = 0x00;
-     cKeyDown = false;
-     zKeyDown = false;
+     cKeyDown = 1;
+     zKeyDown = 1;
 }
     
 
@@ -49,13 +49,13 @@ void WiiNunchuk::updateNunchuckData()
 
     decrypt(dataBuffer);
 
-    accelerometerZ = (dataBuffer[4] << 2) | ((0xC0 & dataBuffer[6]) >> 6);
-    accelerometerY = (dataBuffer[3] << 2) | ((0x30 & dataBuffer[6])  >> 4);
-    accelerometerX = (dataBuffer[2] << 2) | ((0x0C & dataBuffer[6])  >> 2);
+    accelerometerZ = (dataBuffer[4] << 2) | ((0xC0 & dataBuffer[5]) >> 6);
+    accelerometerY = (dataBuffer[3] << 2) | ((0x30 & dataBuffer[5])  >> 4);
+    accelerometerX = (dataBuffer[2] << 2) | ((0x0C & dataBuffer[5])  >> 2);
     analogStickY = dataBuffer[1];
     analogStickX = dataBuffer[0];
-    cKeyDown = !((0x02 & dataBuffer[6]) >> 1);
-    zKeyDown = !(0x01 & dataBuffer[6]);
+    cKeyDown = ((dataBuffer[5] & 0x02) >> 1);
+    zKeyDown = (dataBuffer[5] & 0x01);
 }
 
 
@@ -95,10 +95,10 @@ uint8_t WiiNunchuk::GetAnalogStickY()
         
 bool WiiNunchuk::isCKeyDown()
 {
-    return cKeyDown;
+    return (cKeyDown==0) ? true : false;
 }
         
 bool WiiNunchuk::isZKeyDown()
 {
-    return zKeyDown;
+    return (zKeyDown==0) ? true : false;
 }

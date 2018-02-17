@@ -30,8 +30,8 @@ private:
         volatile uint16_t accelerometerZ;
         volatile uint8_t  analogStickX;
         volatile uint8_t  analogStickY;
-        volatile bool cKeyDown;
-        volatile bool zKeyDown;
+        volatile uint8_t cKeyDown;
+        volatile uint8_t zKeyDown;
 };
 
 #endif //_NUNCHUCK_DRV_H
